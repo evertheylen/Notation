@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Drawing demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+#canvas {
+    touch-action: none;
+}
+
+</style>
+</head>
+<body>
+<script type="text/javascript">
+document.addEventListener("DOMContentLoaded", function(event) { 
+    CV = document.getElementById("canvas");
+    CV.addEventListener("pointerdown", handleStart, false);
+    CV.addEventListener("pointerup", handleEnd, false);
+    CV.addEventListener("pointercancel", handleCancel, false);
+    CV.addEventListener("pointermove", handleMove, false);
+    CTX = CV.getContext("2d");
+    
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas, false);
+});
+
+function resizeCanvas(evt) {
+    CV.width = document.body.clientWidth;
+    CV.height = document.body.clientHeight;
+}
+
+var ongoingTouches = new Array();
+
+var gaps = new Array();
+var last_time = new Date();
+
+function handleStart(evt) {
+    log("pointerdown: id = " + evt.pointerId);
+    ongoingTouches.push(copyTouch(evt));
+    CTX.beginPath();
+    //   CTX.arc(evt.clientX, evt.clientY, 4, 0, 2 * Math.PI, false);  // a circle at the start
+    CTX.fillStyle = '#000000';
+    CTX.fill();
+} 
+
+function handleMove(evt) {
+    var now = new Date();
+    var gap = now - last_time;
+    gaps.push(gap);
+    if (gaps.length > 50) {
+        gaps = gaps.slice(gaps.length - 50, gaps.length);
+        var avg = gaps.reduce((a, b) => a + b, 0) / 50;
+        console.log("Average time between moves", avg);
+    }
+    last_time = now;
+
+    console.log(evt);
+    var idx = ongoingTouchIndexById(evt.pointerId);
+
+    //log("continuing touch: idx =  " + idx);
+    if (idx >= 0) {
+        CTX.beginPath();
+        //log("CTX.moveTo(" + ongoingTouches[idx].pageX + ", " + ongoingTouches[idx].pageY + ");");
+        CTX.moveTo(ongoingTouches[idx].pageX, ongoingTouches[idx].pageY);
+        //log("CTX.lineTo(" + evt.clientX + ", " + evt.clientY + ");");
+        CTX.lineTo(evt.clientX, evt.clientY);
+        CTX.lineWidth = evt.pressure*5;
+        CTX.strokeStyle = '#000000';
+        CTX.stroke();
+
+        ongoingTouches.splice(idx, 1, copyTouch(evt));  // swap in the new touch record
+        log(".");
+    } else {
+        log("can't figure out which touch to continue: idx = " + idx);
+    }
+}
+
+function handleEnd(evt) {
+    log("pointerup");
+    var idx = ongoingTouchIndexById(evt.pointerId);
+
+    if (idx >= 0) {
+        CTX.lineWidth = evt.pressure*5;
+        CTX.fillStyle = '#000000';
+        CTX.beginPath();
+        CTX.moveTo(ongoingTouches[idx].pageX, ongoingTouches[idx].pageY);
+        CTX.lineTo(evt.clientX, evt.clientY);
+        // CTX.fillRect(evt.clientX - 4, evt.clientY - 4, 8, 8);  // and a square at the end
+        ongoingTouches.splice(idx, 1);  // remove it; we're done
+    } else {
+        log("can't figure out which touch to end");
+    }
+} 
+
+function handleCancel(evt) {
+    log("pointercancel: id = " + evt.pointerId);
+    var idx = ongoingTouchIndexById(evt.pointerId);
+    ongoingTouches.splice(idx, 1);  // remove it; we're done
+}
+
+function copyTouch(touch) {
+    return { identifier: touch.pointerId, pageX: touch.clientX, pageY: touch.clientY };
+} 
+
+function ongoingTouchIndexById(idToFind) {
+    for (var i = 0; i < ongoingTouches.length; i++) {
+        var id = ongoingTouches[i].identifier;
+        
+        if (id == idToFind) {
+            return i;
+        }
+    }
+    return -1;    // not found
+} 
+
+log = console.log;
+
+</script>
+<canvas id="canvas">
+    Your browser does not support the canvas element.
+</canvas>
+</body>
+</html>
