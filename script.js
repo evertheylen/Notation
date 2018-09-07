@@ -13,11 +13,29 @@ document.addEventListener("DOMContentLoaded", function(evt) {
 
     FRCV = document.getElementById("firstresponse_canvas");
     FRCTX = FRCV.getContext("2d");
-    FRCV.addEventListener("pointerdown", handle_start, false);
-    FRCV.addEventListener("pointerup", handle_end, false);
-    FRCV.addEventListener("pointercancel", handle_cancel, false);
-    FRCV.addEventListener("pointerleave", handle_cancel, false); // cancel if cursor leaves window
-    FRCV.addEventListener("pointermove", handle_move, false);
+
+    // Hacky editing check
+    var parent = window.parent;
+    log("parent", parent.length, parent);
+    var editing = false;
+    if (parent.length == 0 || parent.length > 2) {
+        editing = true;
+    }
+
+    if (editing) {
+        log("Enabling editing");
+        // the length trick is based on observation, no idea why or when it works
+        FRCV.addEventListener("pointerdown", handle_start, false);
+        FRCV.addEventListener("pointerup", handle_end, false);
+        FRCV.addEventListener("pointercancel", handle_cancel, false);
+        FRCV.addEventListener("pointerleave", handle_cancel, false); // cancel if cursor leaves window
+        FRCV.addEventListener("pointermove", handle_move, false);
+
+        document.addEventListener('contextmenu', on_context_menu);
+    } else {
+        log("Disabling editing");
+        document.getElementById("contextmenu_link").style.display = 'none';
+    }
     
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas, false);
@@ -66,7 +84,6 @@ function set_color_mode(mode) {
         dot.style.width = size + "px";
         el.onclick = (function(evt) {
             width_multiplier = this.size;
-            log("width_multiplier now ", width_multiplier);
             menu_action_done();
         }).bind({size: size});
     }
@@ -111,7 +128,7 @@ const colors = {
 var ctx_menu = undefined;
 var ctx_menu_reason = undefined;
 
-document.addEventListener('contextmenu', function(evt) {
+function on_context_menu(evt) {
     ctx_menu_reason = 'rightclick';
     if (ctx_menu.style.display == 'block') {
         ctx_menu.style.display = 'none';
@@ -130,7 +147,6 @@ document.addEventListener('contextmenu', function(evt) {
         var menu_rect = ctx_menu.getBoundingClientRect();
 
         if (evt.clientX + menu_rect.width + 8 > body_rect.width) {
-            log("move menu left");
             ctx_menu.style.removeProperty('left');
             ctx_menu.style.right = (body_rect.width - evt.clientX + 4) + 'px';
         } else {
@@ -139,7 +155,6 @@ document.addEventListener('contextmenu', function(evt) {
         }
 
         if (evt.clientY + menu_rect.height + 8 > body_rect.height) {
-            log("move menu up");
             ctx_menu.style.removeProperty('top');
             ctx_menu.style.bottom = (body_rect.height - evt.clientY + 4) + 'px';
         } else {
@@ -150,7 +165,7 @@ document.addEventListener('contextmenu', function(evt) {
         ctx_menu.style.removeProperty('visibility');
     }
     evt.preventDefault();
-});
+}
 
 document.addEventListener("DOMContentLoaded", function(evt) {
     ctx_menu = document.getElementById('contextmenu');
@@ -317,7 +332,6 @@ function add_and_draw_point(curve, point, is_end) {
     }
 
     if (is_end) {
-        log("is_end, arr len = ", len);
         remove_straight_line(pts[len-2], pts[len-1], curve);
         bezier_line(pts[len-3], pts[len-2], pts[len-1], pts[len-1], curve);
     }
