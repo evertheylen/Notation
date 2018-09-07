@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Drawing demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+
+html, body {
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+.fullscreen_canvas {
+    touch-action: none;
+    position: absolute;
+}
+
+#firstresponse_canvas {
+    z-index: 10;
+}
+
+</style>
+</head>
+<body>
+<script type="text/javascript" src="script.js"></script>
+<canvas class="fullscreen_canvas" id="firstresponse_canvas">
+</canvas>
+
+<canvas class="fullscreen_canvas" id="main_canvas">
+    Your browser does not support the canvas element.
+</canvas>
+</body>
+</html>
