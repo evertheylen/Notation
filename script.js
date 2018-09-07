@@ -174,8 +174,8 @@ document.addEventListener("DOMContentLoaded", function(evt) {
             ctx_menu_reason = 'menu';
             ctx_menu.style.top = '30px';
             ctx_menu.style.removeProperty('bottom');
-            ctx_menu.style.right = '5px';
-            ctx_menu.style.removeProperty('left');
+            ctx_menu.style.left = '5px';
+            ctx_menu.style.removeProperty('right');
             ctx_menu.style.display = 'block';
         }
     }
