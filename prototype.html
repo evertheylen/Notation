@@ -10,6 +10,16 @@ html, body {
     height: 100%;
     margin: 0;
     overflow: hidden;
+    font-family: sans-serif;
+    font-size: 14px;
+}
+
+.light {
+    background-color: white;
+}
+
+.dark {
+    background-color: rgb(25, 28, 30);
 }
 
 .fullscreen_canvas {
@@ -21,9 +31,86 @@ html, body {
     z-index: 10;
 }
 
+#contextmenu {
+    z-index: 20;
+    position: absolute;
+    display: none;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border-radius: 3px;
+    cursor: default;
+}
+
+.menu-item {
+    padding: 6px 10px 6px 10px;
+}
+
+.link:hover {
+    cursor: pointer;
+}
+
+.dark .menu-item:hover {
+    background: rgba(255, 255, 255, 0.07);
+}
+
+.light .menu-item:hover {
+    background: rgba(50, 50, 50, 0.08);
+}
+
+.light #contextmenu {
+    color: rgb(55, 53, 47);
+    background: rgb(255, 255, 255);
+    box-shadow: rgba(15, 15, 15, 0.05) 0px 0px 0px 1px,
+                rgba(15, 15, 15, 0.1) 0px 3px 6px,
+                rgba(15, 15, 15, 0.2) 0px 9px 24px;
+}
+
+.dark #contextmenu {
+    color: rgb(202, 204, 206);
+    background: rgb(63, 68, 71);
+    box-shadow: rgba(15, 15, 15, 0.1) 0px 0px 0px 1px, 
+                rgba(15, 15, 15, 0.2) 0px 3px 6px, 
+                rgba(15, 15, 15, 0.4) 0px 9px 24px;
+}
+
+.pick-color, .pick-size {
+    height: 25px;
+    width: 25px;
+    border-radius: 50%;
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.dot {
+    display: inline-flex;
+    border-radius: 50%;
+    position: absolute;  /* no idea why this is needed, but does weird things otherwise */
+}
+
+.pick-color:hover, .pick-size:hover {
+    cursor: pointer;
+}
+
+.light .dot {
+    background-color: #37352f;
+}
+
+.light .pick-size {
+    background-color: rgba(55, 53, 47, 0.2);
+}
+
+.dark .dot {
+    background-color: #caccce;
+}
+
+.dark .pick-size {
+    background-color: rgba(202, 204, 206, 0.2);
+}
+
 </style>
 </head>
-<body>
+<body class="light">
 <script type="text/javascript" src="script.js"></script>
 <canvas class="fullscreen_canvas" id="firstresponse_canvas">
 </canvas>
@@ -31,5 +118,31 @@ html, body {
 <canvas class="fullscreen_canvas" id="main_canvas">
     Your browser does not support the canvas element.
 </canvas>
+
+<div id="contextmenu">
+    <div id="switchmode" class="menu-item link">Use Dark Mode</div>
+    <div id="clearcanvas" class="menu-item link">Clear</div>
+    <div class="menu-item">
+        <span class="pick-color" data-color="default"></span>
+        <span class="pick-color" data-color="gray"></span>
+        <span class="pick-color" data-color="brown"></span>
+        <span class="pick-color" data-color="orange"></span>
+        <span class="pick-color" data-color="yellow"></span>
+        <br>
+        <span class="pick-color" data-color="green"></span>
+        <span class="pick-color" data-color="blue"></span>
+        <span class="pick-color" data-color="purple"></span>
+        <span class="pick-color" data-color="pink"></span>
+        <span class="pick-color" data-color="red"></span>
+    </div>
+    <div class="menu-item">
+        <span class="pick-size" data-size="3"><span class="dot"></span></span>
+        <span class="pick-size" data-size="5"><span class="dot"></span></span>
+        <span class="pick-size" data-size="8"><span class="dot"></span></span>
+        <span class="pick-size" data-size="12"><span class="dot"></span></span>
+        <span class="pick-size" data-size="17"><span class="dot"></span></span>
+    </div>
+</div>
+
 </body>
 </html>

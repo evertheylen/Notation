@@ -1,8 +1,4 @@
 
-// TODO
-// [ ] make redraw quicker
-
-
 // Initialize canvas and bind handlers
 // -----------------------------------
 
@@ -11,14 +7,12 @@ var CTX = undefined;
 
 log = console.log;
 
-document.addEventListener("DOMContentLoaded", function(event) {
+document.addEventListener("DOMContentLoaded", function(evt) {
     CV = document.getElementById("main_canvas");
     CTX = CV.getContext("2d");
-    CTX.strokeStyle = 'black';
 
     FRCV = document.getElementById("firstresponse_canvas");
     FRCTX = FRCV.getContext("2d");
-    FRCTX.strokeStyle = 'black';
     FRCV.addEventListener("pointerdown", handle_start, false);
     FRCV.addEventListener("pointerup", handle_end, false);
     FRCV.addEventListener("pointercancel", handle_cancel, false);
@@ -38,12 +32,121 @@ function resizeCanvas(evt) {
 }
 
 
+// Colors and dark/light mode
+// --------------------------
+
+var color_mode = undefined;
+
+function set_color_mode(mode) {
+    if (mode === color_mode) return;
+    color_mode = mode;
+
+    document.body.className = color_mode;
+    document.getElementById('switchmode').textContent = 
+        {light: "Use Dark Mode", dark: "Use Light Mode"}[color_mode];
+    curves.forEach(redraw);
+
+    var swatches = document.getElementsByClassName('pick-color');
+    for (var i=0; i<swatches.length; i++) {
+        var el = swatches[i];
+        var el_color = el.getAttribute("data-color");
+        el.style['background-color'] = colors[color_mode][el_color];
+        el.onclick = (function(evt) {
+            color = this.el_color;
+            ctx_menu.style.display = 'none';
+        }).bind({el_color: el_color});
+    }
+
+    var sizes = document.getElementsByClassName('pick-size');
+    for (var i=0; i<sizes.length; i++) {
+        var el = sizes[i];
+        var dot = el.children[0];
+        var size = parseInt(el.getAttribute("data-size"));
+        dot.style.height = size + "px";
+        dot.style.width = size + "px";
+        el.onclick = (function(evt) {
+            width_multiplier = this.size;
+            log("width_multiplier now ", width_multiplier);
+            ctx_menu.style.display = 'none';
+        }).bind({size: size});
+    }
+}
+
+document.addEventListener("DOMContentLoaded", function(evt) {
+    // TODO: load color_mode from cookie
+    set_color_mode('light');
+});
+
+const colors = {
+    dark: {
+        default: '#caccce',
+        gray: '#788084',
+        brown: '#937264',
+        orange: '#ffa344',
+        yellow: '#ffdc49',
+        green: '#4dab9a',
+        blue: '#529cca',
+        purple: '#9a6dd7',
+        pink: '#e255a1',
+        red: '#ff7369'
+    },
+    light: {
+        default: '#37352f',
+        gray: '#949ca0',
+        brown: '#64473a',
+        orange: '#d9730d',
+        yellow: '#dfab01',
+        green: '#0f7b6c',
+        blue: '#0b6e99',
+        purple: '#6940a5',
+        pink: '#ad1a72',
+        red: '#e03e3e'
+    }
+}
+
+
+// Right click menu
+// ----------------
+
+var ctx_menu = undefined;
+
+document.addEventListener('contextmenu', function(evt) {
+    log("ctx menu", ctx_menu.style.display);
+    if (ctx_menu.style.display == 'block') {
+        ctx_menu.style.display = 'none';
+    } else {
+        ctx_menu.style.top = (evt.clientY+4) + 'px';
+        ctx_menu.style.left = (evt.clientX+4) + 'px';
+        ctx_menu.style.display = 'block';
+    }
+    evt.preventDefault();
+});
+
+document.addEventListener("DOMContentLoaded", function(evt) {
+    ctx_menu = document.getElementById('contextmenu');
+
+    document.getElementById("switchmode").onclick = function(evt) {
+        if (color_mode === 'light') set_color_mode('dark');
+        else set_color_mode('light');
+        ctx_menu.style.display = 'none';
+    };
+
+    document.getElementById("clearcanvas").onclick = function(evt) {
+        CTX.clearRect(0, 0, CV.width, CV.height);
+        curves = new Array();
+        ctx_menu.style.display = 'none';
+    }
+});
+
+
 // Actual drawing state and functions
 // ----------------------------------
 
-var smoothing = 0.1;
-var max_pressure_diff = 0.1;
+var color = 'default';
 var width_multiplier = 5;
+
+const smoothing = 0.1;
+const max_width_diff = 0.5;
 
 // Drawing state
 var ongoing_curves = {};
@@ -53,39 +156,43 @@ function bounded(min, val, max) {
     return Math.max(Math.min(val, max), min);
 }
 
-function calc_width(prev, cur) {
-    var pressure = bounded(prev.pressure-max_pressure_diff, cur.pressure, prev.pressure+max_pressure_diff);
-    return pressure * width_multiplier;
+function calc_width(prev, cur, curve) {
+    var pressure = bounded(prev.pressure-max_width_diff, cur.pressure, prev.pressure+max_width_diff);
+    return pressure * curve.width_multiplier;
 }
 
-function redraw(arr) {
-    const len = arr.length;
+function redraw(curve) {
+    var pts = curve.points;
+    const len = pts.length;
     if (len == 2) {
-        straight_line(arr[0], arr[1], CTX);
+        straight_line(pts[0], pts[1], curve, CTX);
     } else {
-        bezier_line(arr[0], arr[0], arr[1], arr[2]);
+        CTX.strokeStyle = colors[color_mode][curve.color];
+        CTX.fillStyle = colors[color_mode][curve.color];
+
+        bezier_line(pts[0], pts[0], pts[1], pts[2], curve);
         for (var i=1; i<len-2; i++) {
-            bezier_line(arr[i-1], arr[i], arr[i+1], arr[i+2]);
+            bezier_line(pts[i-1], pts[i], pts[i+1], pts[i+2], curve);
         }
-        bezier_line(arr[len-3], arr[len-2], arr[len-1], arr[len-1]);
+        bezier_line(pts[len-3], pts[len-2], pts[len-1], pts[len-1], curve);
     }
 }
 
-function straight_line(prev_point, point, ctx) {
+function straight_line(prev_point, point, curve, ctx) {
     ctx = ctx || FRCTX;
     ctx.beginPath();
     ctx.moveTo(prev_point.x, prev_point.y);
     ctx.lineTo(point.x, point.y);
-    ctx.lineWidth = calc_width(prev_point, point);
+    ctx.lineWidth = calc_width(prev_point, point, curve);
     ctx.stroke();
 }
 
-function remove_straight_line(prev_point, point) {
+function remove_straight_line(prev_point, point, curve) {
     FRCTX.globalCompositeOperation = 'destination-out';
     FRCTX.beginPath();
     FRCTX.moveTo(prev_point.x, prev_point.y);
     FRCTX.lineTo(point.x, point.y);
-    FRCTX.lineWidth = calc_width(prev_point, point) * 2;
+    FRCTX.lineWidth = calc_width(prev_point, point, curve) * 2;
     FRCTX.stroke();
     FRCTX.globalCompositeOperation = 'source-over';
 }
@@ -96,6 +203,8 @@ function bezier_controlpoint(prev, cur, next, reverse) {
     
     const length = Math.sqrt(xd**2 + yd**2);
     const angle = Math.atan2(yd, xd) + (reverse ? Math.PI : 0);
+    // So far, I have not been able to find a better formula
+    // one that includes the speed would be cool
     const adjusted_length = Math.min(length*smoothing, length/5);
 
     return {
@@ -104,12 +213,20 @@ function bezier_controlpoint(prev, cur, next, reverse) {
     };
 }
 
-function bezier_line(a, b, c, d) {
+function bezier_line(a, b, c, d, curve) {
     // b and c are the actual points between which need to draw a bezier curve
     // a and d are the previous and next points
+    const width = calc_width(b, c, curve);
     const dist = Math.sqrt((b.x-c.x)**2 + (b.y-c.y)**2);
+
+    if (width > 5) {
+        CTX.beginPath();
+        CTX.arc(b.x, b.y, width/2, 0, 2*Math.PI);
+        CTX.fill();
+    }
+
     if (dist <= 3) {
-        straight_line(b, c, CTX);
+        straight_line(b, c, curve, CTX);
         return;
     }
 
@@ -119,7 +236,7 @@ function bezier_line(a, b, c, d) {
     CTX.beginPath();
     CTX.moveTo(b.x, b.y);
     CTX.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, c.x, c.y);
-    CTX.lineWidth = calc_width(b, c);
+    CTX.lineWidth = width;
     CTX.stroke();
 
     /*
@@ -139,28 +256,29 @@ function bezier_line(a, b, c, d) {
     */
 }
 
-function add_and_draw_point(arr, point, is_end) {
-    const len = arr.length;
-    const prev_point = arr[len-1];
+function add_and_draw_point(curve, point, is_end) {
+    var pts = curve.points;
+    pts.push(point);
+    var len = pts.length;
+    var prev_point = pts[len-2];
 
     // First we add the most immediate point as a simple line
-    straight_line(prev_point, point);
+    straight_line(prev_point, point, curve);
 
     // Then we do bezier stuff if possible :)
     if (len == 3) {
-        remove_straight_line(arr[0], arr[1]);
-        bezier_line(arr[0], arr[0], arr[1], arr[2]);
+        remove_straight_line(pts[0], pts[1], curve);
+        bezier_line(pts[0], pts[0], pts[1], pts[2], curve);
     } else if (len >= 4) {
-        remove_straight_line(arr[len-3], arr[len-2]);
-        bezier_line(arr[len-4], arr[len-3], arr[len-2], arr[len-1]);
+        remove_straight_line(pts[len-3], pts[len-2], curve);
+        bezier_line(pts[len-4], pts[len-3], pts[len-2], pts[len-1], curve);
     }
-    
+
     if (is_end) {
-        remove_straight_line(arr[len-2], arr[len-1]);
-        bezier_line(arr[len-3], arr[len-2], arr[len-1], arr[len-1]);
+        log("is_end, arr len = ", len);
+        remove_straight_line(pts[len-2], pts[len-1], curve);
+        bezier_line(pts[len-3], pts[len-2], pts[len-1], pts[len-1], curve);
     }
-    
-    arr.push(point);
 }
 
 function event_to_point(evt) {
@@ -173,29 +291,45 @@ function event_to_point(evt) {
 }
 
 function handle_start(evt) {
-    var points = [event_to_point(evt)];
-    ongoing_curves[evt.pointerId] = points;
+    // 1 -> actual drawing
+    // 2 -> right mouse
+    // 4 -> second button on my wacom
+    if (evt.buttons === 1) {
+        var curve = {
+            color: color,
+            width_multiplier: width_multiplier,
+            points: [event_to_point(evt)]
+        };
+        CTX.strokeStyle = colors[color_mode][curve.color];
+        CTX.fillStyle = colors[color_mode][curve.color];
+        FRCTX.strokeStyle = colors[color_mode][curve.color];
+        ongoing_curves[evt.pointerId] = curve;
+    }
+    if (evt.buttons !== 2) {
+        document.getElementById('contextmenu').style.display = 'none';
+    }
 } 
 
 function handle_move(evt) {
-    var arr = ongoing_curves[evt.pointerId];
-    if (arr != undefined) {
-        add_and_draw_point(arr, event_to_point(evt));
+    var curve = ongoing_curves[evt.pointerId];
+    if (curve != undefined) {
+        add_and_draw_point(curve, event_to_point(evt));
     }
 }
 
-function finalize_curve(arr, pointer_id) {
+function finalize_curve(curve, pointer_id) {
     delete ongoing_curves[pointer_id];
-    if (arr.length >= 2) {
-        curves.push(arr);
+    if (curve.points.length >= 2) {
+        curves.push(curve);
+        var pts = curve.points;
         var total_length = 0;
-        var prev = arr[0];
-        for (var i=1; i<arr.length; i++) {
-            total_length += Math.sqrt((arr[i].x - prev.x)**2 + (arr[i].y - prev.y)**2);
-            prev = arr[i];
+        var prev = pts[0];
+        for (var i=1; i<pts.length; i++) {
+            total_length += Math.sqrt((pts[i].x - prev.x)**2 + (pts[i].y - prev.y)**2);
+            prev = pts[i];
         }
-        const total_time = arr[arr.length-1].time - arr[0].time;
-        const avg_time = total_time / arr.length;
+        const total_time = pts[pts.length-1].time - pts[0].time;
+        const avg_time = total_time / pts.length;
         log("Average time between drawing points: ", avg_time);
         const avg_speed = total_length / total_time;
         log("Average speed: ", total_length);
@@ -207,17 +341,17 @@ function finalize_curve(arr, pointer_id) {
 }
 
 function handle_end(evt) {
-    var arr = ongoing_curves[evt.pointerId];
-    if (arr != undefined) {
-        add_and_draw_point(arr, event_to_point(evt), true);
-        finalize_curve(arr, evt.pointerId);
+    var curve = ongoing_curves[evt.pointerId];
+    if (curve != undefined) {
+        add_and_draw_point(curve, event_to_point(evt), true);
+        finalize_curve(curve, evt.pointerId);
     }
 }
 
 function handle_cancel(evt) {
-    var arr = ongoing_curves[evt.pointerId];
-    if (arr != undefined) {
+    var curve = ongoing_curves[evt.pointerId];
+    if (curve != undefined) {
         // same as end, but don't draw (we don't have location info at all)
-        finalize_curve(arr, evt.pointerId);
+        finalize_curve(curve, evt.pointerId);
     }
 }
