@@ -53,7 +53,7 @@ function set_color_mode(mode) {
         el.style['background-color'] = colors[color_mode][el_color];
         el.onclick = (function(evt) {
             color = this.el_color;
-            ctx_menu.style.display = 'none';
+            menu_action_done();
         }).bind({el_color: el_color});
     }
 
@@ -67,7 +67,7 @@ function set_color_mode(mode) {
         el.onclick = (function(evt) {
             width_multiplier = this.size;
             log("width_multiplier now ", width_multiplier);
-            ctx_menu.style.display = 'none';
+            menu_action_done();
         }).bind({size: size});
     }
 }
@@ -109,15 +109,45 @@ const colors = {
 // ----------------
 
 var ctx_menu = undefined;
+var ctx_menu_reason = undefined;
 
 document.addEventListener('contextmenu', function(evt) {
-    log("ctx menu", ctx_menu.style.display);
+    ctx_menu_reason = 'rightclick';
     if (ctx_menu.style.display == 'block') {
         ctx_menu.style.display = 'none';
     } else {
-        ctx_menu.style.top = (evt.clientY+4) + 'px';
-        ctx_menu.style.left = (evt.clientX+4) + 'px';
+        // Some non trivial logic to make sure menu is displayed correctly
+        // First display but hide element so we know bounding rect
+        ctx_menu.style.top = '5px';
+        ctx_menu.style.removeProperty('bottom');
+        ctx_menu.style.left = '5px';
+        ctx_menu.style.removeProperty('right');
+        
+        ctx_menu.style.visibility = 'hidden';
         ctx_menu.style.display = 'block';
+
+        var body_rect = document.body.getBoundingClientRect();
+        var menu_rect = ctx_menu.getBoundingClientRect();
+
+        if (evt.clientX + menu_rect.width + 8 > body_rect.width) {
+            log("move menu left");
+            ctx_menu.style.removeProperty('left');
+            ctx_menu.style.right = (body_rect.width - evt.clientX + 4) + 'px';
+        } else {
+            ctx_menu.style.left = (evt.clientX+4) + 'px';
+            ctx_menu.style.removeProperty('right');
+        }
+
+        if (evt.clientY + menu_rect.height + 8 > body_rect.height) {
+            log("move menu up");
+            ctx_menu.style.removeProperty('top');
+            ctx_menu.style.bottom = (body_rect.height - evt.clientY + 4) + 'px';
+        } else {
+            ctx_menu.style.top = (evt.clientY+4) + 'px';
+            ctx_menu.style.removeProperty('bottom');
+        }
+        
+        ctx_menu.style.removeProperty('visibility');
     }
     evt.preventDefault();
 });
@@ -128,16 +158,34 @@ document.addEventListener("DOMContentLoaded", function(evt) {
     document.getElementById("switchmode").onclick = function(evt) {
         if (color_mode === 'light') set_color_mode('dark');
         else set_color_mode('light');
-        ctx_menu.style.display = 'none';
+        menu_action_done();
     };
 
     document.getElementById("clearcanvas").onclick = function(evt) {
         CTX.clearRect(0, 0, CV.width, CV.height);
         curves = new Array();
-        ctx_menu.style.display = 'none';
+        menu_action_done();
+    }
+
+    document.getElementById("contextmenu_link").onclick = function(evt) {
+        if (ctx_menu.style.display == 'block') {
+            ctx_menu.style.display = 'none';
+        } else {
+            ctx_menu_reason = 'menu';
+            ctx_menu.style.top = '30px';
+            ctx_menu.style.removeProperty('bottom');
+            ctx_menu.style.right = '5px';
+            ctx_menu.style.removeProperty('left');
+            ctx_menu.style.display = 'block';
+        }
     }
 });
 
+function menu_action_done() {
+    if (ctx_menu_reason == 'rightclick') {
+        ctx_menu.style.display = 'none';
+    }
+}
 
 // Actual drawing state and functions
 // ----------------------------------
@@ -146,7 +194,7 @@ var color = 'default';
 var width_multiplier = 5;
 
 const smoothing = 0.1;
-const max_width_diff = 0.5;
+const max_pressure_diff = 0.5;
 
 // Drawing state
 var ongoing_curves = {};
@@ -157,8 +205,8 @@ function bounded(min, val, max) {
 }
 
 function calc_width(prev, cur, curve) {
-    var pressure = bounded(prev.pressure-max_width_diff, cur.pressure, prev.pressure+max_width_diff);
-    return pressure * curve.width_multiplier;
+    var width = cur.pressure * curve.width_multiplier;
+    return bounded(prev.width - max_pressure_diff, width, prev.width + max_pressure_diff);
 }
 
 function redraw(curve) {
@@ -217,6 +265,7 @@ function bezier_line(a, b, c, d, curve) {
     // b and c are the actual points between which need to draw a bezier curve
     // a and d are the previous and next points
     const width = calc_width(b, c, curve);
+    c.width = width;
     const dist = Math.sqrt((b.x-c.x)**2 + (b.y-c.y)**2);
 
     if (width > 5) {
@@ -281,12 +330,13 @@ function add_and_draw_point(curve, point, is_end) {
     }
 }
 
-function event_to_point(evt) {
+function event_to_point(evt, width) {
     return {
         x: evt.clientX, 
         y: evt.clientY,
         pressure: evt.pressure,
-        time: new Date()
+        width: width || 0,
+        time: new Date(),
     };
 }
 
@@ -298,7 +348,7 @@ function handle_start(evt) {
         var curve = {
             color: color,
             width_multiplier: width_multiplier,
-            points: [event_to_point(evt)]
+            points: [event_to_point(evt, evt.pressure * width_multiplier)]
         };
         CTX.strokeStyle = colors[color_mode][curve.color];
         CTX.fillStyle = colors[color_mode][curve.color];
