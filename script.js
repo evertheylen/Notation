@@ -204,11 +204,6 @@ function bounded(min, val, max) {
     return Math.max(Math.min(val, max), min);
 }
 
-function calc_width(prev, cur, curve) {
-    var width = cur.pressure * curve.width_multiplier;
-    return bounded(prev.width - max_pressure_diff, width, prev.width + max_pressure_diff);
-}
-
 function redraw(curve) {
     var pts = curve.points;
     const len = pts.length;
@@ -231,7 +226,7 @@ function straight_line(prev_point, point, curve, ctx) {
     ctx.beginPath();
     ctx.moveTo(prev_point.x, prev_point.y);
     ctx.lineTo(point.x, point.y);
-    ctx.lineWidth = calc_width(prev_point, point, curve);
+    ctx.lineWidth = point.width;
     ctx.stroke();
 }
 
@@ -240,7 +235,7 @@ function remove_straight_line(prev_point, point, curve) {
     FRCTX.beginPath();
     FRCTX.moveTo(prev_point.x, prev_point.y);
     FRCTX.lineTo(point.x, point.y);
-    FRCTX.lineWidth = calc_width(prev_point, point, curve) * 2;
+    FRCTX.lineWidth = point.width * 2;
     FRCTX.stroke();
     FRCTX.globalCompositeOperation = 'source-over';
 }
@@ -264,13 +259,11 @@ function bezier_controlpoint(prev, cur, next, reverse) {
 function bezier_line(a, b, c, d, curve) {
     // b and c are the actual points between which need to draw a bezier curve
     // a and d are the previous and next points
-    const width = calc_width(b, c, curve);
-    c.width = width;
     const dist = Math.sqrt((b.x-c.x)**2 + (b.y-c.y)**2);
 
-    if (width > 5) {
+    if (c.width > 5) {
         CTX.beginPath();
-        CTX.arc(b.x, b.y, width/2, 0, 2*Math.PI);
+        CTX.arc(c.x, c.y, c.width/2, 0, 2*Math.PI);
         CTX.fill();
     }
 
@@ -285,7 +278,7 @@ function bezier_line(a, b, c, d, curve) {
     CTX.beginPath();
     CTX.moveTo(b.x, b.y);
     CTX.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, c.x, c.y);
-    CTX.lineWidth = width;
+    CTX.lineWidth = c.width;
     CTX.stroke();
 
     /*
@@ -330,12 +323,16 @@ function add_and_draw_point(curve, point, is_end) {
     }
 }
 
-function event_to_point(evt, width) {
+function event_to_point(evt, width_mult, prev_width) {
+    var width = (prev_width == undefined) ? 
+        (evt.pressure * width_mult) :
+        bounded(prev_width - max_pressure_diff, evt.pressure * width_mult, prev_width + max_pressure_diff);
+
     return {
         x: evt.clientX, 
         y: evt.clientY,
         pressure: evt.pressure,
-        width: width || 0,
+        width: width,
         time: new Date(),
     };
 }
@@ -348,7 +345,7 @@ function handle_start(evt) {
         var curve = {
             color: color,
             width_multiplier: width_multiplier,
-            points: [event_to_point(evt, evt.pressure * width_multiplier)]
+            points: [event_to_point(evt, width_multiplier)]
         };
         CTX.strokeStyle = colors[color_mode][curve.color];
         CTX.fillStyle = colors[color_mode][curve.color];
@@ -363,7 +360,8 @@ function handle_start(evt) {
 function handle_move(evt) {
     var curve = ongoing_curves[evt.pointerId];
     if (curve != undefined) {
-        add_and_draw_point(curve, event_to_point(evt));
+        var pt = event_to_point(evt, curve.width_multiplier, curve.points[curve.points.length-1].width);
+        add_and_draw_point(curve, pt);
     }
 }
 
