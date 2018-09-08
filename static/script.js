@@ -14,13 +14,8 @@ document.addEventListener("DOMContentLoaded", function(evt) {
     FRCV = document.getElementById("firstresponse_canvas");
     FRCTX = FRCV.getContext("2d");
 
-    // Hacky editing check
-    var parent = window.parent;
-    log("parent", parent.length, parent);
-    var editing = false;
-    if (parent.length == 0 || parent.length > 2) {
-        editing = true;
-    }
+    // TODO: check editing
+    editing = true
 
     if (editing) {
         log("Enabling editing");
