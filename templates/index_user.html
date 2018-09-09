@@ -18,7 +18,7 @@
     <div id="drawing_url_container">
         <p>Here is a fresh new URL (click to copy):</p>
         <input id="drawing_url" readonly value="test" onClick="this.select(); document.execCommand('copy')">
-        <p><a href="#" id="drawing_url2">Or click here to open in a new tab!</a></p>
+        <p><a target="_blank" rel="noopener noreferrer" href="#" id="drawing_url2">Or click here to open in a new tab!</a></p>
     </div>
     <br>
     <a class="button" href="{{ .logout_url }}">Logout</a>

@@ -279,7 +279,7 @@ function bezier_line(a, b, c, d, curve) {
     // a and d are the previous and next points
     const dist = Math.sqrt((b.x-c.x)**2 + (b.y-c.y)**2);
 
-    if (c.w > 5) {
+    if (c.w > 3) {
         CTX.beginPath();
         CTX.arc(c.x, c.y, c.w/2, 0, 2*Math.PI);
         CTX.fill();
