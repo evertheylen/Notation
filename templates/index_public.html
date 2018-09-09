@@ -1,0 +1,22 @@
+
+{{template "base" .}}
+
+{{define "title"}}Notation{{end}}
+
+{{define "extrahead"}}
+<link rel="stylesheet" type="text/css" href="/static/page_style.css">
+{{end}}
+
+{{define "body"}}
+<body>
+<div class="page_container">
+    <div class="content">
+    <h1>Notation</h1>
+    <p>A simple web app to make drawings that are easy to embed.</p>
+    <p>Made specifically for <a href="https://notion.so/">Notion.so</a>.</p>
+    <p>This service uses cookies to store preferences and authentication info.</p>
+    <a href="{{ .login_url }}"><div class="button">Login or signup with Google</div></a>
+    </div>
+</div>
+</body>
+{{end}}

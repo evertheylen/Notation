@@ -1,11 +1,12 @@
 
-// Initialize canvas and bind handlers
-// -----------------------------------
+// Initialize canvas, some stuff, and bind handlers
+// ------------------------------------------------
 
 var CV = undefined;
 var CTX = undefined;
 
 log = console.log;
+drawing_id = undefined;
 
 document.addEventListener("DOMContentLoaded", function(evt) {
     CV = document.getElementById("main_canvas");
@@ -13,28 +14,30 @@ document.addEventListener("DOMContentLoaded", function(evt) {
 
     FRCV = document.getElementById("firstresponse_canvas");
     FRCTX = FRCV.getContext("2d");
-
-    // TODO: check editing
-    editing = true
-
-    if (editing) {
-        log("Enabling editing");
-        // the length trick is based on observation, no idea why or when it works
-        FRCV.addEventListener("pointerdown", handle_start, false);
-        FRCV.addEventListener("pointerup", handle_end, false);
-        FRCV.addEventListener("pointercancel", handle_cancel, false);
-        FRCV.addEventListener("pointerleave", handle_cancel, false); // cancel if cursor leaves window
-        FRCV.addEventListener("pointermove", handle_move, false);
-
-        document.addEventListener('contextmenu', on_context_menu);
-    } else {
-        log("Disabling editing");
-        document.getElementById("contextmenu_link").style.display = 'none';
-    }
     
+    // TODO: load color_mode from cookie
+    set_color_mode('light');
+
+    curves = preload_curves();
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas, false);
+    drawing_id = window.location.pathname.split('/')[2];
+    log("Drawing ID = '" + drawing_id + "'");
 });
+
+function enable_editing() {
+    // Don't worry, the server will block if you don't have the proper credentials :)
+    log("Enabling editing");
+    FRCV.addEventListener("pointerdown", handle_start, false);
+    FRCV.addEventListener("pointerup", handle_end, false);
+    FRCV.addEventListener("pointercancel", handle_cancel, false);
+    FRCV.addEventListener("pointerleave", handle_cancel, false); // cancel if cursor leaves window
+    FRCV.addEventListener("pointermove", handle_move, false);
+
+    document.addEventListener('contextmenu', on_context_menu);
+    document.getElementById("contextmenu_link").style.display = 'block';
+    document.getElementById("firstresponse_canvas").style.display = 'block';
+}
 
 function resizeCanvas(evt) {
     CV.width = document.body.clientWidth;
@@ -83,11 +86,6 @@ function set_color_mode(mode) {
         }).bind({size: size});
     }
 }
-
-document.addEventListener("DOMContentLoaded", function(evt) {
-    // TODO: load color_mode from cookie
-    set_color_mode('light');
-});
 
 const colors = {
     dark: {
@@ -236,7 +234,7 @@ function straight_line(prev_point, point, curve, ctx) {
     ctx.beginPath();
     ctx.moveTo(prev_point.x, prev_point.y);
     ctx.lineTo(point.x, point.y);
-    ctx.lineWidth = point.width;
+    ctx.lineWidth = point.w;
     ctx.stroke();
 }
 
@@ -245,7 +243,7 @@ function remove_straight_line(prev_point, point, curve) {
     FRCTX.beginPath();
     FRCTX.moveTo(prev_point.x, prev_point.y);
     FRCTX.lineTo(point.x, point.y);
-    FRCTX.lineWidth = point.width * 2;
+    FRCTX.lineWidth = point.w * 2;
     FRCTX.stroke();
     FRCTX.globalCompositeOperation = 'source-over';
 }
@@ -271,9 +269,9 @@ function bezier_line(a, b, c, d, curve) {
     // a and d are the previous and next points
     const dist = Math.sqrt((b.x-c.x)**2 + (b.y-c.y)**2);
 
-    if (c.width > 5) {
+    if (c.w > 5) {
         CTX.beginPath();
-        CTX.arc(c.x, c.y, c.width/2, 0, 2*Math.PI);
+        CTX.arc(c.x, c.y, c.w/2, 0, 2*Math.PI);
         CTX.fill();
     }
 
@@ -288,7 +286,7 @@ function bezier_line(a, b, c, d, curve) {
     CTX.beginPath();
     CTX.moveTo(b.x, b.y);
     CTX.bezierCurveTo(c1.x, c1.y, c2.x, c2.y, c.x, c.y);
-    CTX.lineWidth = c.width;
+    CTX.lineWidth = c.w;
     CTX.stroke();
 
     /*
@@ -340,9 +338,9 @@ function event_to_point(evt, width_mult, prev_width) {
     return {
         x: evt.clientX, 
         y: evt.clientY,
-        pressure: evt.pressure,
-        width: width,
-        time: new Date(),
+        p: evt.pressure,
+        w: width,
+        t: Date.now(),
     };
 }
 
@@ -369,7 +367,7 @@ function handle_start(evt) {
 function handle_move(evt) {
     var curve = ongoing_curves[evt.pointerId];
     if (curve != undefined) {
-        var pt = event_to_point(evt, curve.width_multiplier, curve.points[curve.points.length-1].width);
+        var pt = event_to_point(evt, curve.width_multiplier, curve.points[curve.points.length-1].w);
         add_and_draw_point(curve, pt);
     }
 }
@@ -385,7 +383,7 @@ function finalize_curve(curve, pointer_id) {
             total_length += Math.sqrt((pts[i].x - prev.x)**2 + (pts[i].y - prev.y)**2);
             prev = pts[i];
         }
-        const total_time = pts[pts.length-1].time - pts[0].time;
+        const total_time = pts[pts.length-1].t - pts[0].t;
         const avg_time = total_time / pts.length;
         log("Average time between drawing points: ", avg_time);
         const avg_speed = total_length / total_time;
@@ -395,6 +393,8 @@ function finalize_curve(curve, pointer_id) {
     if (Object.keys(ongoing_curves).length === 0) {
         FRCTX.clearRect(0, 0, FRCV.width, FRCV.height);
     }
+
+    be_curve_add(curve);
 }
 
 function handle_end(evt) {
@@ -411,4 +411,33 @@ function handle_cancel(evt) {
         // same as end, but don't draw (we don't have location info at all)
         finalize_curve(curve, evt.pointerId);
     }
+}
+
+
+// Backend communication
+// ---------------------
+
+function be_curve_add(curve) {
+    fetch(window.origin + "/api/curve/add", {
+        method: "POST",
+        body: JSON.stringify({
+            drawing: drawing_id,
+            curve: curve
+        }),
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    }).then(log).catch(log);
+}
+
+function be_drawing_clear(curve) {
+    fetch(window.origin + "/api/drawing/clear", {
+        method: "PUT",
+        body: JSON.stringify({
+            drawing: 'todo'
+        }),
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    }).then(log).catch(log);
 }

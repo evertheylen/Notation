@@ -1,9 +1,3 @@
-<!DOCTYPE html>
-<html>
-<head>
-<title>Drawing demo</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
 
 html, body {
     width: 100%;
@@ -36,6 +30,7 @@ html, body {
 
 #firstresponse_canvas {
     z-index: 10;
+    display: none;
 }
 
 #contextmenu {
@@ -81,6 +76,7 @@ html, body {
 }
 
 #contextmenu_link {
+    display: none;
     font-size: 18px;
     position: absolute;
     z-index: 15;
@@ -132,44 +128,3 @@ html, body {
 .dark .pick-size {
     background-color: rgba(202, 204, 206, 0.2);
 }
-
-</style>
-</head>
-<body class="light">
-<script type="text/javascript" src="script.js"></script>
-<canvas class="fullscreen_canvas" id="firstresponse_canvas">
-</canvas>
-
-<canvas class="fullscreen_canvas" id="main_canvas">
-    Your browser does not support the canvas element.
-</canvas>
-
-<div id="contextmenu">
-    <div id="switchmode" class="menu-item link">Use Dark Mode</div>
-    <div id="clearcanvas" class="menu-item link">Clear</div>
-    <div class="menu-item">
-        <span class="pick-color" data-color="default"></span>
-        <span class="pick-color" data-color="gray"></span>
-        <span class="pick-color" data-color="brown"></span>
-        <span class="pick-color" data-color="orange"></span>
-        <span class="pick-color" data-color="yellow"></span>
-        <br>
-        <span class="pick-color" data-color="green"></span>
-        <span class="pick-color" data-color="blue"></span>
-        <span class="pick-color" data-color="purple"></span>
-        <span class="pick-color" data-color="pink"></span>
-        <span class="pick-color" data-color="red"></span>
-    </div>
-    <div class="menu-item">
-        <span class="pick-size" data-size="3"><span class="dot"></span></span>
-        <span class="pick-size" data-size="5"><span class="dot"></span></span>
-        <span class="pick-size" data-size="8"><span class="dot"></span></span>
-        <span class="pick-size" data-size="12"><span class="dot"></span></span>
-        <span class="pick-size" data-size="17"><span class="dot"></span></span>
-    </div>
-</div>
-
-<div id="contextmenu_link">menu</div>
-
-</body>
-</html>

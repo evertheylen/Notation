@@ -1,0 +1,28 @@
+{{template "base" .}}
+
+{{define "title"}}Notation{{end}}
+
+{{define "extrahead"}}
+<link rel="stylesheet" type="text/css" href="/static/page_style.css">
+{{end}}
+
+{{define "body"}}
+<body>
+<script type="text/javascript" src="/static/script_user.js"></script>
+<div class="page_container">
+    <div class="content">
+    <h1>Notation</h1>
+    <p>You are logged in as <i>{{ .user.Email }}</i>.</p>
+    <p>In the future, your drawings will be shown here.</p>
+    <div class="button" id="new_drawing">New drawing</div>
+    <div id="drawing_url_container">
+        <p>Here is a fresh new URL (click to copy):</p>
+        <input id="drawing_url" readonly value="test" onClick="this.select(); document.execCommand('copy')">
+        <p><a href="#" id="drawing_url2">Or click here to open in a new tab!</a></p>
+    </div>
+    <hr>
+    <a href="{{ .logout_url }}"><div class="button">Logout</div></a>
+    </div>
+</div>
+</body>
+{{end}}

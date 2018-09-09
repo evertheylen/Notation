@@ -1,0 +1,17 @@
+{{define "base"}}
+<!DOCTYPE html>
+<html>
+<head>
+<title>{{block "title" .}}{{end}}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+{{block "extrahead" .}}
+<style>
+body {
+    background: red;
+}
+</style>
+{{end}}
+</head>
+{{block "body" .}}{{end}}
+</html>
+{{end}}
