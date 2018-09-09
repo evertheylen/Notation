@@ -15,8 +15,11 @@ document.addEventListener("DOMContentLoaded", function(evt) {
     FRCV = document.getElementById("firstresponse_canvas");
     FRCTX = FRCV.getContext("2d");
     
-    // TODO: load color_mode from cookie
-    set_color_mode('light');
+    stored_color_mode = window.localStorage.getItem('color_mode')
+    if (stored_color_mode == null) {
+        stored_color_mode = 'light'
+    }
+    set_color_mode(stored_color_mode);
 
     curves = preload_curves();
     resizeCanvas();
@@ -85,6 +88,8 @@ function set_color_mode(mode) {
             menu_action_done();
         }).bind({size: size});
     }
+
+    window.localStorage.setItem("color_mode", color_mode);
 }
 
 const colors = {
@@ -173,6 +178,7 @@ document.addEventListener("DOMContentLoaded", function(evt) {
         CTX.clearRect(0, 0, CV.width, CV.height);
         curves = new Array();
         menu_action_done();
+        be_drawing_clear();
     }
 
     document.getElementById("contextmenu_link").onclick = function(evt) {
@@ -215,12 +221,16 @@ function bounded(min, val, max) {
 function redraw(curve) {
     var pts = curve.points;
     const len = pts.length;
+
+    CTX.strokeStyle = colors[color_mode][curve.color];
+    CTX.fillStyle = colors[color_mode][curve.color];
+
+    CTX.beginPath();
+    CTX.arc(pts[0].x, pts[0].y, pts[0].w/2, 0, 2*Math.PI);
+    CTX.fill();
     if (len == 2) {
         straight_line(pts[0], pts[1], curve, CTX);
-    } else {
-        CTX.strokeStyle = colors[color_mode][curve.color];
-        CTX.fillStyle = colors[color_mode][curve.color];
-
+    } else if (len > 2) {
         bezier_line(pts[0], pts[0], pts[1], pts[2], curve);
         for (var i=1; i<len-2; i++) {
             bezier_line(pts[i-1], pts[i], pts[i+1], pts[i+2], curve);
@@ -349,15 +359,21 @@ function handle_start(evt) {
     // 2 -> right mouse
     // 4 -> second button on my wacom
     if (evt.buttons === 1) {
+        var pt = event_to_point(evt, width_multiplier);
         var curve = {
+            index: curves.length,
             color: color,
             width_multiplier: width_multiplier,
-            points: [event_to_point(evt, width_multiplier)]
+            points: [pt]
         };
         CTX.strokeStyle = colors[color_mode][curve.color];
         CTX.fillStyle = colors[color_mode][curve.color];
         FRCTX.strokeStyle = colors[color_mode][curve.color];
         ongoing_curves[evt.pointerId] = curve;
+
+        CTX.beginPath();
+        CTX.arc(pt.x, pt.y, pt.w/2, 0, 2*Math.PI);
+        CTX.fill();
     }
     if (evt.buttons !== 2) {
         document.getElementById('contextmenu').style.display = 'none';
@@ -374,21 +390,20 @@ function handle_move(evt) {
 
 function finalize_curve(curve, pointer_id) {
     delete ongoing_curves[pointer_id];
-    if (curve.points.length >= 2) {
-        curves.push(curve);
-        var pts = curve.points;
-        var total_length = 0;
-        var prev = pts[0];
-        for (var i=1; i<pts.length; i++) {
-            total_length += Math.sqrt((pts[i].x - prev.x)**2 + (pts[i].y - prev.y)**2);
-            prev = pts[i];
-        }
-        const total_time = pts[pts.length-1].t - pts[0].t;
-        const avg_time = total_time / pts.length;
-        log("Average time between drawing points: ", avg_time);
-        const avg_speed = total_length / total_time;
-        log("Average speed: ", total_length);
+    
+    curves.push(curve);
+    var pts = curve.points;
+    var total_length = 0;
+    var prev = pts[0];
+    for (var i=1; i<pts.length; i++) {
+        total_length += Math.sqrt((pts[i].x - prev.x)**2 + (pts[i].y - prev.y)**2);
+        prev = pts[i];
     }
+    const total_time = pts[pts.length-1].t - pts[0].t;
+    const avg_time = total_time / pts.length;
+    log("Average time between drawing points: ", avg_time);
+    const avg_speed = total_length / total_time;
+    log("Average speed: ", total_length);
 
     if (Object.keys(ongoing_curves).length === 0) {
         FRCTX.clearRect(0, 0, FRCV.width, FRCV.height);
@@ -434,7 +449,7 @@ function be_drawing_clear(curve) {
     fetch(window.origin + "/api/drawing/clear", {
         method: "PUT",
         body: JSON.stringify({
-            drawing: 'todo'
+            drawing: drawing_id
         }),
         headers: {
             'Content-Type': 'application/json'

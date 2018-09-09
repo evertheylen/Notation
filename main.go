@@ -26,6 +26,7 @@ type Drawing struct {
 
 // Curve contains points
 type Curve struct {
+	Index           int     `json:"index"`
 	Color           string  `json:"color"`
 	WidthMultiplier float64 `json:"width_multiplier"`
 	Points          []Point `json:"points"`
@@ -153,7 +154,7 @@ func drawing(w http.ResponseWriter, r *http.Request) {
 	}
 
 	curves := make([]Curve, 0)
-	_, err = datastore.NewQuery("Curve").Ancestor(k).GetAll(ctx, &curves)
+	_, err = datastore.NewQuery("Curve").Order("Index").Ancestor(k).GetAll(ctx, &curves)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -215,6 +216,11 @@ func curveAdd(w http.ResponseWriter, r *http.Request) {
 func drawingAdd(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
 	uk := getUserKey(ctx)
+	if uk == nil {
+		http.Error(w, "Not logged in", 401)
+		return
+	}
+
 	k := datastore.NewIncompleteKey(ctx, "Drawing", uk)
 	k, err := datastore.Put(ctx, k, new(Drawing))
 	if err != nil {
@@ -228,8 +234,45 @@ func drawingAdd(w http.ResponseWriter, r *http.Request) {
 
 func drawingClear(w http.ResponseWriter, r *http.Request) {
 	ctx := appengine.NewContext(r)
-	u := user.Current(ctx)
-	log.Debugf(ctx, "API user: %s", u.Email)
+	uk := getUserKey(ctx)
+	if uk == nil {
+		http.Error(w, "Not logged in", 401)
+		return
+	}
+
+	var info struct {
+		Drawing string `json:"drawing"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	err := decoder.Decode(&info)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	dk, err := datastore.DecodeKey(info.Drawing)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	if *dk.Parent() != *uk {
+		http.Error(w, "Not authorized", 401)
+		return
+	}
+
+	keys, err := datastore.NewQuery("Curve").Ancestor(dk).KeysOnly().GetAll(ctx, nil)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	err = datastore.DeleteMulti(ctx, keys)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 }
 
 // Utilities

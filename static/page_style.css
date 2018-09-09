@@ -24,11 +24,18 @@ body {
 }
 
 .button {
-    padding: 20px;
+    padding: 15px;
+    text-align: center;
     border: 1px solid black;
     font-weight: bold;
     border-radius: 3px;
-    display: inline-block;
+    display: block;
+    color: black;
+    text-decoration: none;
+    max-width: 400px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 16px;
 }
 
 .button:hover {
@@ -41,7 +48,6 @@ body {
     padding: 20px;
     background-color: rgba(0, 0, 0, 0.1);
     border-radius: 3px;
-    margin-top: 16px;
     margin-bottom: 16px;
 }
 
