@@ -11,7 +11,7 @@
 <script type="text/javascript" src="/static/script.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", function(evt) {
-{{ if .editable }} enable_editing();{{ end }}
+dom_content_loaded({{ if .editable }}true{{ else }}false{{ end }});
 });
 function preload_curves() { return [
 {{ range .curves }}{{toJSON .}},{{ end }}
@@ -23,31 +23,6 @@ function preload_curves() { return [
 <canvas class="fullscreen_canvas" id="main_canvas">
     Your browser does not support the canvas element.
 </canvas>
-
-<div id="contextmenu">
-    <div id="switchmode" class="menu-item link">Use Dark Mode</div>
-    <div id="clearcanvas" class="menu-item link">Clear</div>
-    <div class="menu-item">
-        <span class="pick-color" data-color="default"></span>
-        <span class="pick-color" data-color="gray"></span>
-        <span class="pick-color" data-color="brown"></span>
-        <span class="pick-color" data-color="orange"></span>
-        <span class="pick-color" data-color="yellow"></span>
-        <br>
-        <span class="pick-color" data-color="green"></span>
-        <span class="pick-color" data-color="blue"></span>
-        <span class="pick-color" data-color="purple"></span>
-        <span class="pick-color" data-color="pink"></span>
-        <span class="pick-color" data-color="red"></span>
-    </div>
-    <div class="menu-item">
-        <span class="pick-size" data-size="3"><span class="dot"></span></span>
-        <span class="pick-size" data-size="5"><span class="dot"></span></span>
-        <span class="pick-size" data-size="8"><span class="dot"></span></span>
-        <span class="pick-size" data-size="12"><span class="dot"></span></span>
-        <span class="pick-size" data-size="17"><span class="dot"></span></span>
-    </div>
-</div>
 
 <div id="contextmenu_link">menu</div>
 

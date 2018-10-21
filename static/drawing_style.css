@@ -37,7 +37,7 @@ html, body {
     z-index: 20;
     position: absolute;
     display: none;
-    padding-top: 10px;
+    /*padding-top: 10px;*/
     padding-bottom: 10px;
     border-radius: 3px;
     cursor: default;
@@ -47,15 +47,25 @@ html, body {
     padding: 6px 10px 6px 10px;
 }
 
+.menu-row {
+    display: flex;
+    flex: 1;
+    width: 100%;
+}
+
+.menu-button {
+    padding-top: 10px;
+}
+
 .link:hover {
     cursor: pointer;
 }
 
-.dark .menu-item:hover {
+.dark .menu-item:hover, .dark .menu-button:hover {
     background: rgba(255, 255, 255, 0.07);
 }
 
-.light .menu-item:hover {
+.light .menu-item:hover, .light .menu-button:hover {
     background: rgba(50, 50, 50, 0.08);
 }
 

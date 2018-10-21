@@ -8,7 +8,7 @@ var CTX = undefined;
 log = console.log;
 drawing_id = undefined;
 
-document.addEventListener("DOMContentLoaded", function(evt) {
+function dom_content_loaded(editable) {
     CV = document.getElementById("main_canvas");
     CTX = CV.getContext("2d");
 
@@ -17,29 +17,34 @@ document.addEventListener("DOMContentLoaded", function(evt) {
     
     stored_color_mode = window.localStorage.getItem('color_mode')
     if (stored_color_mode == null) {
-        stored_color_mode = 'light'
+        stored_color_mode = 'light';
     }
-    set_color_mode(stored_color_mode);
+
+    if (editable) {
+        // Don't worry, the server will block if you don't have the proper credentials :)
+        log("Enabling editing");
+        ctx_menu = htmlToElement(ctx_menu_html);
+        document.body.appendChild(ctx_menu);
+        set_color_mode(stored_color_mode);
+        FRCV.addEventListener("pointerdown", handle_start, false);
+        FRCV.addEventListener("pointerup", handle_end, false);
+        FRCV.addEventListener("pointercancel", handle_cancel, false);
+        FRCV.addEventListener("pointerleave", handle_cancel, false); // cancel if cursor leaves window
+        FRCV.addEventListener("pointermove", handle_move, false);
+
+        document.addEventListener('contextmenu', on_context_menu);
+        set_ctx_menu_handlers(ctx_menu);
+        document.getElementById("contextmenu_link").style.display = 'block';
+        document.getElementById("firstresponse_canvas").style.display = 'block';
+    } else {
+        set_color_mode(stored_color_mode);
+    }
 
     curves = preload_curves();
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas, false);
     drawing_id = window.location.pathname.split('/')[2];
     log("Drawing ID = '" + drawing_id + "'");
-});
-
-function enable_editing() {
-    // Don't worry, the server will block if you don't have the proper credentials :)
-    log("Enabling editing");
-    FRCV.addEventListener("pointerdown", handle_start, false);
-    FRCV.addEventListener("pointerup", handle_end, false);
-    FRCV.addEventListener("pointercancel", handle_cancel, false);
-    FRCV.addEventListener("pointerleave", handle_cancel, false); // cancel if cursor leaves window
-    FRCV.addEventListener("pointermove", handle_move, false);
-
-    document.addEventListener('contextmenu', on_context_menu);
-    document.getElementById("contextmenu_link").style.display = 'block';
-    document.getElementById("firstresponse_canvas").style.display = 'block';
 }
 
 function resizeCanvas(evt) {
@@ -57,12 +62,14 @@ function resizeCanvas(evt) {
 var color_mode = undefined;
 
 function set_color_mode(mode) {
+    console.log("Setting color mode " + mode);
     if (mode === color_mode) return;
     color_mode = mode;
 
     document.body.className = color_mode;
-    document.getElementById('switchmode').textContent = 
-        {light: "Use Dark Mode", dark: "Use Light Mode"}[color_mode];
+    var switchmode = document.getElementById('switchmode');
+    switchmode.textContent = {light: "Use Dark Mode", dark: "Use Light Mode"}[color_mode];
+
     curves.forEach(redraw);
 
     var swatches = document.getElementsByClassName('pick-color');
@@ -123,6 +130,35 @@ const colors = {
 // Right click menu
 // ----------------
 
+var ctx_menu_html = `<div id="contextmenu">
+<div class="menu-row">
+    <span id="undo" class="menu-button">undo</span>
+    <span id="clearcanvas" class="menu-button">clear</span>
+    <span id="redo" class="menu-button">redo</span>
+</div>
+<div class="menu-item">
+    <span class="pick-color" data-color="default"></span>
+    <span class="pick-color" data-color="gray"></span>
+    <span class="pick-color" data-color="brown"></span>
+    <span class="pick-color" data-color="orange"></span>
+    <span class="pick-color" data-color="yellow"></span>
+    <br>
+    <span class="pick-color" data-color="green"></span>
+    <span class="pick-color" data-color="blue"></span>
+    <span class="pick-color" data-color="purple"></span>
+    <span class="pick-color" data-color="pink"></span>
+    <span class="pick-color" data-color="red"></span>
+</div>
+<div class="menu-item">
+    <span class="pick-size" data-size="3"><span class="dot"></span></span>
+    <span class="pick-size" data-size="5"><span class="dot"></span></span>
+    <span class="pick-size" data-size="8"><span class="dot"></span></span>
+    <span class="pick-size" data-size="12"><span class="dot"></span></span>
+    <span class="pick-size" data-size="17"><span class="dot"></span></span>
+</div>
+<div id="switchmode" class="menu-item link">Use Dark Mode</div>
+</div>`
+
 var ctx_menu = undefined;
 var ctx_menu_reason = undefined;
 
@@ -165,9 +201,7 @@ function on_context_menu(evt) {
     evt.preventDefault();
 }
 
-document.addEventListener("DOMContentLoaded", function(evt) {
-    ctx_menu = document.getElementById('contextmenu');
-
+function set_ctx_menu_handlers(ctx_menu) {
     document.getElementById("switchmode").onclick = function(evt) {
         if (color_mode === 'light') set_color_mode('dark');
         else set_color_mode('light');
@@ -193,7 +227,7 @@ document.addEventListener("DOMContentLoaded", function(evt) {
             ctx_menu.style.display = 'block';
         }
     }
-});
+}
 
 function menu_action_done() {
     if (ctx_menu_reason == 'rightclick') {
@@ -455,4 +489,16 @@ function be_drawing_clear(curve) {
             'Content-Type': 'application/json'
         }
     }).then(log).catch(log);
+}
+
+
+// Utilities
+// ---------
+
+// https://stackoverflow.com/a/35385518
+function htmlToElement(html) {
+    var template = document.createElement('template');
+    html = html.trim();
+    template.innerHTML = html;
+    return template.content.firstChild;
 }
