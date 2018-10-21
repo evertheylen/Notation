@@ -215,6 +215,16 @@ function set_ctx_menu_handlers(ctx_menu) {
         be_drawing_clear();
     }
 
+    document.getElementById("undo").onclick = function(evt) {
+        undo();
+        menu_action_done();
+    }
+
+    document.getElementById("redo").onclick = function(evt) {
+        redo();
+        menu_action_done();
+    }
+
     document.getElementById("contextmenu_link").onclick = function(evt) {
         if (ctx_menu.style.display == 'block') {
             ctx_menu.style.display = 'none';
@@ -235,21 +245,41 @@ function menu_action_done() {
     }
 }
 
-// Actual drawing state and functions
-// ----------------------------------
+// Actual drawing state, history and functions
+// -------------------------------------------
 
 var color = 'default';
 var width_multiplier = 5;
 
 const smoothing = 0.1;
+// There is no way to draw a bezier curve on a canvas with
+// a different starting and ending thickness (without writing)
+// your own render engine. So by limiting the maximum change
+// in thickness, it hopefully looks fluent enough that 
+// no one notices it.
 const max_pressure_diff = 0.5;
 
 // Drawing state
 var ongoing_curves = {};
 var curves = new Array();
+var history = new Array();
+
+// history is made from different types of objects:
+//   - add_curve
+//   - split_curve
+//   - delete_curve (by fully erasing)
+//   - clear_all
 
 function bounded(min, val, max) {
     return Math.max(Math.min(val, max), min);
+}
+
+function undo() {
+    console.log("undo");
+}
+
+function redo() {
+    console.log("redo");
 }
 
 function redraw(curve) {
