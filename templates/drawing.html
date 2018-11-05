@@ -15,7 +15,8 @@ dom_content_loaded({{ if .editable }}true{{ else }}false{{ end }});
 });
 function preload_curves() { return [
 {{ range .curves }}{{toJSON .}},{{ end }}
-]; }
+]; 
+}
 </script>
 <canvas class="fullscreen_canvas" id="firstresponse_canvas">
 </canvas>

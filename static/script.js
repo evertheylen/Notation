@@ -6,7 +6,7 @@ var CV = undefined;
 var CTX = undefined;
 
 log = console.log;
-drawing_id = undefined;
+drawing_key = undefined;
 
 function dom_content_loaded(editable) {
     CV = document.getElementById("main_canvas");
@@ -36,21 +36,37 @@ function dom_content_loaded(editable) {
         set_ctx_menu_handlers(ctx_menu);
         document.getElementById("contextmenu_link").style.display = 'block';
         document.getElementById("firstresponse_canvas").style.display = 'block';
+
+        // CTRL+Z and CTRL+SHIFT+Z
+        document.onkeydown = function(e) {
+            if (e.keyCode == 90 && e.ctrlKey) {
+                if (e.shiftKey) {
+                    redo();
+                } else {
+                    undo();
+                }
+            }
+        }
     } else {
         set_color_mode(stored_color_mode);
     }
 
     curves = preload_curves();
+    curves_valid_index = curves.length-1;
+    // init_history
+    drawing_history = [
+        {valid_index: curves_valid_index}
+    ];
     resizeCanvas();
     window.addEventListener('resize', resizeCanvas, false);
-    drawing_id = window.location.pathname.split('/')[2];
-    log("Drawing ID = '" + drawing_id + "'");
+    drawing_key = window.location.pathname.split('/')[2];
+    log("Drawing key = '" + drawing_key + "'");
 }
 
 function resizeCanvas(evt) {
     CV.width = document.body.clientWidth;
     CV.height = document.body.clientHeight;
-    curves.forEach(redraw);
+    redraw_all();
     FRCV.width = document.body.clientWidth;
     FRCV.height = document.body.clientHeight;
 }
@@ -70,7 +86,7 @@ function set_color_mode(mode) {
     var switchmode = document.getElementById('switchmode');
     switchmode.textContent = {light: "Use Dark Mode", dark: "Use Light Mode"}[color_mode];
 
-    curves.forEach(redraw);
+    redraw_all();
 
     var swatches = document.getElementsByClassName('pick-color');
     for (var i=0; i<swatches.length; i++) {
@@ -210,19 +226,24 @@ function set_ctx_menu_handlers(ctx_menu) {
 
     document.getElementById("clearcanvas").onclick = function(evt) {
         CTX.clearRect(0, 0, CV.width, CV.height);
-        curves = new Array();
         menu_action_done();
-        be_drawing_clear();
+        add_to_history({
+            valid_index: -1,
+            clear_history: true
+        });
+        clear_history = true;
+        be_drawing_set();
     }
 
+
     document.getElementById("undo").onclick = function(evt) {
-        undo();
         menu_action_done();
+        undo();
     }
 
     document.getElementById("redo").onclick = function(evt) {
-        redo();
         menu_action_done();
+        redo();
     }
 
     document.getElementById("contextmenu_link").onclick = function(evt) {
@@ -262,24 +283,58 @@ const max_pressure_diff = 0.5;
 // Drawing state
 var ongoing_curves = {};
 var curves = new Array();
-var history = new Array();
-
-// history is made from different types of objects:
-//   - add_curve
-//   - split_curve
-//   - delete_curve (by fully erasing)
-//   - clear_all
+var curves_valid_index = -1;
+var drawing_history = null;  // to be set later
+// points to current actual point in history
+var current_history_index = 0;
+var clear_history = false; // clear history if curve is added
 
 function bounded(min, val, max) {
     return Math.max(Math.min(val, max), min);
 }
 
+function add_to_history(event) {
+    // aka 'set_present' ?
+    if (drawing_history[current_history_index].clear_history) {
+        console.log("clearing history");
+        drawing_history = [{valid_index: -1}];
+        current_history_index = 0;
+    } else {
+        // remove future if necessary
+        drawing_history = drawing_history.slice(0, current_history_index+1);
+    }
+    drawing_history.push(event);
+    current_history_index = drawing_history.length - 1;
+    curves_valid_index = event.valid_index;
+}
+
+function set_history(i) {
+    if (i<0 || i>=drawing_history.length) {
+        console.log("ignoring set_history", i);
+        return;
+    }
+
+    curves_valid_index = drawing_history[i].valid_index;
+    console.log("Setting history to", i, curves_valid_index);
+    current_history_index = i;
+    resizeCanvas();
+    be_drawing_set();
+}
+
 function undo() {
-    console.log("undo");
+    set_history(current_history_index-1);
 }
 
 function redo() {
-    console.log("redo");
+    set_history(current_history_index+1);
+}
+
+function redraw_all() {
+    for (var i=0; i<curves.length; i++) {
+        var curve = curves[i];
+        if (curve.index > curves_valid_index) break;
+        redraw(curve);
+    }
 }
 
 function redraw(curve) {
@@ -425,7 +480,7 @@ function handle_start(evt) {
     if (evt.buttons === 1) {
         var pt = event_to_point(evt, width_multiplier);
         var curve = {
-            index: curves.length,
+            index: curves_valid_index+1,
             color: color,
             width_multiplier: width_multiplier,
             points: [pt]
@@ -455,6 +510,21 @@ function handle_move(evt) {
 function finalize_curve(curve, pointer_id) {
     delete ongoing_curves[pointer_id];
     
+    add_to_history({
+        valid_index: curves_valid_index+1,
+        clear_history: false
+    });
+
+    var last_valid_arr_index = -1;
+    for (var i=curves.length-1; i>=0; i--) {
+        var existing_curve = curves[i];
+        if (existing_curve.index <= curves_valid_index-1) {
+            last_valid_arr_index = i;
+            break;
+        }
+    }
+    curves = curves.slice(0, last_valid_arr_index+1);
+
     curves.push(curve);
     var pts = curve.points;
     var total_length = 0;
@@ -500,7 +570,7 @@ function be_curve_add(curve) {
     fetch(window.origin + "/api/curve/add", {
         method: "POST",
         body: JSON.stringify({
-            drawing: drawing_id,
+            drawing_key: drawing_key,
             curve: curve
         }),
         headers: {
@@ -509,18 +579,20 @@ function be_curve_add(curve) {
     }).then(log).catch(log);
 }
 
-function be_drawing_clear(curve) {
-    fetch(window.origin + "/api/drawing/clear", {
-        method: "PUT",
+function be_drawing_set() {
+    fetch(window.origin + "/api/drawing/set", {
+        method: "POST",
         body: JSON.stringify({
-            drawing: drawing_id
+            drawing_key: drawing_key,
+            drawing: {
+                valid_index: curves_valid_index
+            }
         }),
         headers: {
             'Content-Type': 'application/json'
         }
     }).then(log).catch(log);
 }
-
 
 // Utilities
 // ---------
