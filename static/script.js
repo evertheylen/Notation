@@ -84,7 +84,9 @@ function set_color_mode(mode) {
 
     document.body.className = color_mode;
     var switchmode = document.getElementById('switchmode');
-    switchmode.textContent = {light: "Use Dark Mode", dark: "Use Light Mode"}[color_mode];
+    if (switchmode) {
+        switchmode.textContent = {light: "Use Dark Mode", dark: "Use Light Mode"}[color_mode];
+    }
 
     redraw_all();
 
