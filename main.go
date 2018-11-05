@@ -227,12 +227,23 @@ func curveAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	new_valid_index := info.Curve.Index
-	to_delete, _ := datastore.NewQuery("Curve").Filter("Index >= ", new_valid_index).KeysOnly().GetAll(ctx, nil)
-	if len(to_delete) > 0 {
-		err = datastore.DeleteMulti(ctx, to_delete)
+	for true {
+		to_delete, err := datastore.NewQuery("Curve").Ancestor(dk).Filter("Index >= ", new_valid_index).
+			KeysOnly().Limit(500).GetAll(ctx, nil)
 		if err != nil {
-			http.Error(w, "Couldn't delete curves: " + err.Error(), 500)
+			http.Error(w, "Couldn't get keys of curves to delete: " + err.Error(), 500)
 			return
+		}
+
+		if len(to_delete) > 0 {
+			err = datastore.DeleteMulti(ctx, to_delete)
+			if err != nil {
+				http.Error(w, "Couldn't delete curves: " + err.Error(), 500)
+				return
+			}
+		}
+		if len(to_delete) < 500 {
+			break
 		}
 	}
 
