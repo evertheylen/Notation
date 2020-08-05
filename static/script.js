@@ -15,7 +15,7 @@ function dom_content_loaded(editable) {
     FRCV = document.getElementById("firstresponse_canvas");
     FRCTX = FRCV.getContext("2d");
     
-    stored_color_mode = window.localStorage.getItem('color_mode')
+    stored_color_mode = window.localStorage.getItem('color_mode');
     if (stored_color_mode == null) {
         stored_color_mode = 'light';
     }
@@ -272,12 +272,12 @@ function menu_action_done() {
 // -------------------------------------------
 
 var color = 'default';
-var width_multiplier = 5;
+var width_multiplier = 5;  // if negative: eraser
 
 const smoothing = 0.1;
 // There is no way to draw a bezier curve on a canvas with
-// a different starting and ending thickness (without writing)
-// your own render engine. So by limiting the maximum change
+// a different starting and ending thickness (without writing
+// your own render engine). So by limiting the maximum change
 // in thickness, it hopefully looks fluent enough that 
 // no one notices it.
 const max_pressure_diff = 0.5;
@@ -499,7 +499,7 @@ function handle_start(evt) {
     if (evt.buttons !== 2) {
         document.getElementById('contextmenu').style.display = 'none';
     }
-} 
+}
 
 function handle_move(evt) {
     var curve = ongoing_curves[evt.pointerId];
