@@ -1,6 +1,5 @@
 
 runtime: go111
-api_version: go1
 
 handlers:
 - url: /static
@@ -8,4 +7,5 @@ handlers:
   expiration: "7d"
 
 - url: /.*
-  script: _go_app
+  script: auto
+
